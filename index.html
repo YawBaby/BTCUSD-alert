@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BTCUSDT Price Alert Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --text-color: #ffffff;
+      --card-color: #161b22;
+      --accent: #00ff88;
+    }
+    body {
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      margin-bottom: 10px;
+      font-size: 1.8rem;
+    }
+    .card {
+      background: var(--card-color);
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0, 255, 136, 0.2);
+      text-align: center;
+      width: 300px;
+    }
+    input {
+      padding: 10px;
+      margin: 8px 0;
+      width: 90%;
+      border: none;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 1rem;
+    }
+    button {
+      background: var(--accent);
+      border: none;
+      padding: 10px 15px;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 8px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    #priceDisplay {
+      margin-top: 15px;
+      font-size: 1.4rem;
+    }
+    #status {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      margin-top: 5px;
+      white-space: pre-line;
+      transition: color 0.3s ease;
+    }
+    .bg-picker {
+      margin-top: 15px;
+    }
+    .bg-picker input {
+      width: 50%;
+      padding: 5px;
+    }
+    .green-alert {
+      color: #00ff88;
+      font-weight: bold;
+    }
+    .red-alert {
+      color: #ff4b4b;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 BTCUSDT Price Alert Bot</h1>
+  <div class="card">
+    <p><strong>Symbol:</strong> BTCUSDT</p>
+    <input type="number" id="upTarget" placeholder="🔼 Target UP price" />
+    <input type="number" id="downTarget" placeholder="🔽 Target DOWN price" />
+    <input type="number" id="interval" placeholder="⏱️ Interval (sec)" value="10" />
+    <button onclick="startMonitoring()">Start Monitoring</button>
+    <div id="priceDisplay">💰 Waiting for price...</div>
+    <div id="status"></div>
+    <div class="bg-picker">
+      <label for="bgColor">🎨 Background:</label>
+      <input type="color" id="bgColor" value="#0d1117" onchange="changeBg(this.value)" />
+    </div>
+  </div>
+
+  <audio id="alertSound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
+
+  <script>
+    const BASE_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
+    const BOT_TOKEN = "7786679765:45ghddebbLLuPFRdX4rfggddjj67_kyk36Jc";
+    const CHAT_ID = "1722504745";
+
+    let upTarget, downTarget, intervalId;
+    let wasAboveUp = false;
+    let wasBelowDown = false;
+
+    function getPrice() {
+      return fetch(BASE_URL)
+        .then(res => res.json())
+        .then(data => parseFloat(data.price))
+        .catch(err => {
+          document.getElementById('status').innerText = "❌ Error fetching price.";
+          console.error(err);
+          return null;
+        });
+    }
+
+    function sendTelegram(text) {
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `chat_id=${CHAT_ID}&text=${encodeURIComponent(text)}`
+      });
+    }
+
+    function sendAlertMessage(message, type) {
+       const alertCount = 8; // send 8 messages
+       const alertInterval = 600; // milliseconds between each message (~0.6s for 5s total ringing)
+  
+    for (let i = 0; i < alertCount; i++) {
+       setTimeout(() => sendTelegram(message), i * alertInterval);
+    }
+    playAlert();
+
+       const status = document.getElementById('status');
+       status.innerText = `${message}\n📢 Alert sent ${alertCount} times.`;
+       status.className = type === 'up' ? 'green-alert' : 'red-alert';
+    }
+
+
+    async function startMonitoring() {
+      upTarget = parseFloat(document.getElementById('upTarget').value);
+      downTarget = parseFloat(document.getElementById('downTarget').value);
+      const intervalSec = parseInt(document.getElementById('interval').value) * 1000;
+
+      if (!upTarget || !downTarget || !intervalSec) {
+        alert("Please enter all fields.");
+        return;
+      }
+
+      document.getElementById('status').innerText = `✅ Monitoring started...\nUP: ${upTarget}\nDOWN: ${downTarget}`;
+      document.getElementById('status').className = '';
+      if (intervalId) clearInterval(intervalId);
+
+      intervalId = setInterval(async () => {
+        const price = await getPrice();
+        if (price) {
+          document.getElementById('priceDisplay').innerText = `💰 BTCUSDT: $${price}`;
+
+          // UP target hit
+          if (price >= upTarget) {
+            if (!wasAboveUp) {
+              const msg = `🚀 BTCUSDT hit UP target! Current price: ${price}`;
+              sendAlertMessage(msg, 'up');
+              wasAboveUp = true;
+            }
+          } else {
+            wasAboveUp = false;
+          }
+
+          // DOWN target hit
+          if (price <= downTarget) {
+            if (!wasBelowDown) {
+              const msg = `📉 BTCUSDT hit DOWN target! Current price: ${price}`;
+              sendAlertMessage(msg, 'down');
+              wasBelowDown = true;
+            }
+          } else {
+            wasBelowDown = false;
+          }
+        }
+      }, intervalSec);
+    }
+
+    function playAlert() {
+      document.getElementById('alertSound').play();
+    }
+
+    function changeBg(color) {
+      document.documentElement.style.setProperty('--bg-color', color);
+    }
+  </script>
+</body>
+</html>
