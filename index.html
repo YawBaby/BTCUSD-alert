@@ -130,19 +130,19 @@
     }
 
     function sendAlertMessage(message, type) {
-       const alertCount = 8; // send 8 messages
-       const alertInterval = 600; // milliseconds between each message (~0.6s for 5s total ringing)
-  
-    for (let i = 0; i < alertCount; i++) {
-       setTimeout(() => sendTelegram(message), i * alertInterval);
-    }
-    playAlert();
+  const alertCount = 8;          // total messages to send
+  const alertInterval = 60;      // milliseconds between each message (~0.06 sec)
 
-       const status = document.getElementById('status');
-       status.innerText = `${message}\n📢 Alert sent ${alertCount} times.`;
-       status.className = type === 'up' ? 'green-alert' : 'red-alert';
-    }
+  for (let i = 0; i < alertCount; i++) {
+    setTimeout(() => sendTelegram(message), i * alertInterval);
+  }
 
+  playAlert();  // plays the sound immediately when the first message is sent
+
+  const status = document.getElementById('status');
+  status.innerText = `${message}\n📢 Alert sent ${alertCount} times.`;
+  status.className = type === 'up' ? 'green-alert' : 'red-alert';
+}
 
     async function startMonitoring() {
       upTarget = parseFloat(document.getElementById('upTarget').value);
@@ -198,5 +198,6 @@
   </script>
 </body>
 </html>
+
 
 
